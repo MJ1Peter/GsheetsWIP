@@ -14,21 +14,21 @@ WSNAME    =  "Inserted Data"
 
 
 def opensheet (sheetname,  wsname):
-    print("using sheetname {}".format(sheetname))
+    print("using sheetname {sheetname}")
     worksheet =  None 
     
     try:
         gc = gspread.oauth()
         sh = gc.open(sheetname)
         worksheet = sh.worksheet(wsname)
-        print("returning {}/{}".format(sheetname,  wsname))
+        print(f"returning {sheetname}, {WSNAME}")
 
     except gspread.SpreadsheetNotFound:
-        print("spreadsheet '{}' not found".format(sheetname))
+        print(f"spreadsheet '{sheetname}' not found")
     except gspread.WorksheetNotFound:
-        print("worksheet '{}' not found".format(wsname))        
+        print(f"worksheet '{WSNAME} not found")        
     except Exception as e:
-        print("oauth failed: {}".format(e))
+        print(f"oauth failed: {e}")
 
     return worksheet
 
@@ -38,12 +38,11 @@ def _get_worksheet(worksheets,  wsname):
             return s
     return None
 
-
-def _get_worksheet_id(worksheets,  wsname):
-    for s in worksheets:
-        if s.title == wsname:
-            return s.id
-    return None
+# def _get_worksheet_id(worksheets,  wsname):
+#     for s in worksheets:
+#         if s.title == wsname:
+#             return s.id
+#     return None
 
 '''
 accepts spreadsheet name (string), 
@@ -56,7 +55,7 @@ def  createsheet (sheetname):
         # executing 3rd party authentication, oauth returns gspread.client if successful
         gspreadclient = gspread.oauth()
         spreadsheet = gspreadclient.open(sheetname)
-        print("found sheet {}, cant create".format(sheetname))
+        print(f"found sheet {sheetname}, cant create")
         return spreadsheet
 
     except gspread.SpreadsheetNotFound:
@@ -64,27 +63,73 @@ def  createsheet (sheetname):
 
     try:
         # requesting that the client create a spreasheet for us.
-        spreadsheet = gspreadclient.create('A new spreadsheet')
+        spreadsheet = gspreadclient.create("A new spreadsheet")
         return spreadsheet
  
     except Exception as e:
-        print(f'error creating sheet {e} ')
+        print(f"error creating sheet {e}")
         return None
 
-def  insertsheet (sheetname,  wsname):
+def  insertsheet (sheetname, wsname):
+    print(f"using sheetname {WSNAME}")
+    
     try:
         gspreadclient = gspread.oauth()
-        spreadsheet = gspreadclient.insert('WSNAME')
-    pass
+        spreadsheet = gspreadclient.open(sheetname)
+        print(f"Found sheet {sheetname}. Adding {WSNAME} to spreadsheet")
+        return spreadsheet
+    
+    except gspreadclient.SpreadsheetnNotFound:
+        print(f"Cannot locate sheet {sheetname}")
+        return None
+    
+    except Exception as e:
+        print(f"oauth failed:{e}")
+        return None
+    
+    try:
+        with open(CSVFILE, "r") as f:
+            csvdata = list(csv.reader(f, delimiter=","))
+
+        spreadsheet.add_worksheet(title=wsname, rows=1000, cols=50)
+        spreadsheet.values_update(
+            wsname,
+            params={'valueInputOption': 'USER_ENTERED'},
+            body={'values': csvdata}
+        )
+        print(f"finished loading data into {spreadsheet}")
+    
+    except Exception as e:
+        print(f"error inserting data into sheet {WSNAME}")
+
+    return spreadsheet
 
 def  showsheet(worksheet):
-    # <fix me>
-    pass
+    if worksheet is not None:
+        lists = worksheet.get(return_type=gspread.utils.GridRangeType.ListOfLists)
+        if lists is not None:
+            print(f"sheet columns:{lists[0]}")
+            for ndx in range(1,6):
+                print(f"batsman {player[0]}, {player[1:4]}")
+    return
 
 def  deletesheet(sheetname,  wsname):
-    # <fix me>
-    pass
+    print(f"using sheetname {sheetname}.")
 
+    gspreadclient = gspread.oauth()
+
+    try:
+        spreadsheet = gspreadclient.open(sheetname)
+        worksheets = spreadsheet.worksheets()
+        ws = _get_worksheet(worksheets, wsname)
+        if ws is not None:
+            spreadsheet.del_worksheet(ws)
+            print(f"{sheetname} not found can't delete it...")
+            
+    except gspread.SpreadsheetNotFound:
+        print(f"sheetname not found, can't delete...")
+    except gspread.exceptions.APIError as e:
+        print(f"delete failed: {e}")
 
 # execute the code below only if we ran this script directly
 if  __name__ ==  "__main__":
